@@ -8,20 +8,19 @@ Read these files before substantial work:
 - `ARCHITECTURE.md`
 - `INVARIANTS.md`
 - `docs/PROJECT_CONTEXT.md`
-- `.local/INTERVIEW_CONTEXT.md` when it exists locally
+- relevant files under `.local/` when that directory exists
 
 `ARCHITECTURE.md` describes the system that exists today.
 `INVARIANTS.md` contains non-negotiable system and repository constraints.
 `docs/PROJECT_CONTEXT.md` contains durable project context.
-`.local/INTERVIEW_CONTEXT.md` contains private interview-preparation context
-and must never be committed.
+`.local/` contains private contributor context and must never be committed.
 
 ## Goals
 
 - Learn Azure through direct use of Terraform and Azure-native services.
 - Build a realistic but inexpensive security telemetry platform.
 - Practice production-quality Go.
-- Develop security-observability and distributed-systems interview fluency.
+- Develop security-observability and distributed-systems fluency.
 - Favor explicit architecture and operational reasoning over clever code.
 - Keep steady-state Azure cost below $5/month where practical.
 - Keep all infrastructure easy to identify and destroy.
