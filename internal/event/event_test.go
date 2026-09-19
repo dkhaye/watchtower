@@ -73,6 +73,16 @@ func TestDecodeRejectsMalformedJSON(t *testing.T) {
 	}
 }
 
+func TestDecodeRejectsOversizedPayloadBeforeParsing(t *testing.T) {
+	t.Parallel()
+
+	payload := bytes.Repeat([]byte("x"), event.MaxPayloadBytes+1)
+	_, err := event.Decode(payload)
+	if !errors.Is(err, event.ErrPayloadTooLarge) {
+		t.Fatalf("Decode() error = %v, want ErrPayloadTooLarge", err)
+	}
+}
+
 func TestDecodeRejectsInvalidEvents(t *testing.T) {
 	t.Parallel()
 
@@ -103,6 +113,20 @@ func TestDecodeRejectsInvalidEvents(t *testing.T) {
   "source": "azure-activity-log"`, ``, 1), field: "source"},
 		{name: "blank value", payload: strings.Replace(valid, `"actor": "user@example.com"`, `"actor": "  "`, 1), field: "actor"},
 		{name: "invalid timestamp", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "yesterday", 1), field: "timestamp"},
+		{name: "non-digit timestamp", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "202X-09-19T18:30:45Z", 1), field: "timestamp"},
+		{name: "invalid date separator", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026/09-19T18:30:45Z", 1), field: "timestamp"},
+		{name: "lowercase time separator", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19t18:30:45Z", 1), field: "timestamp"},
+		{name: "empty timestamp fraction", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45.Z", 1), field: "timestamp"},
+		{name: "comma timestamp fraction", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45,1Z", 1), field: "timestamp"},
+		{name: "missing timestamp zone", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45.1", 1), field: "timestamp"},
+		{name: "invalid timestamp zone", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45X", 1), field: "timestamp"},
+		{name: "compact timestamp offset", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45+0100", 1), field: "timestamp"},
+		{name: "invalid offset sign", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45*01:00", 1), field: "timestamp"},
+		{name: "invalid offset separator", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45+01-00", 1), field: "timestamp"},
+		{name: "non-digit offset hour", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45+0x:00", 1), field: "timestamp"},
+		{name: "non-digit offset minute", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45+01:0x", 1), field: "timestamp"},
+		{name: "invalid offset minute", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45+01:60", 1), field: "timestamp"},
+		{name: "invalid offset hour", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45+24:00", 1), field: "timestamp"},
 	}
 
 	for _, tt := range tests {

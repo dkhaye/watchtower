@@ -71,12 +71,16 @@ requirements should drive future structure.
 
 Unknown JSON fields are accepted for forward compatibility and remain present
 in the raw payload. The decoder does not silently trim or otherwise normalize
-field values. Blank required fields are rejected.
+field values. Blank required fields are rejected. Serialized events larger
+than 1 MiB are rejected before JSON parsing; future transports must apply the
+same or a stricter limit while reading so the initial input allocation is also
+bounded.
 
 ## Failure model
 
-Decoding distinguishes two caller-actionable classes:
+Decoding distinguishes three caller-actionable classes:
 
+- oversized payloads, which are rejected before parsing;
 - malformed JSON, where the serialized representation is invalid; and
 - invalid events, where the JSON is valid but does not satisfy the event
   contract.

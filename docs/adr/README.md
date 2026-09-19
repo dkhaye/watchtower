@@ -9,6 +9,7 @@ This directory records architecturally significant Watchtower decisions using
 - [ADR-0001: Keep raw telemetry with decoded events](0001-keep-raw-telemetry-with-decoded-events.md)
 - [ADR-0002: Use at-least-once delivery with idempotent processing](0002-use-at-least-once-delivery.md)
 - [ADR-0003: Start with a minimal event contract](0003-start-with-a-minimal-event-contract.md)
+- [ADR-0004: Bound serialized events to 1 MiB](0004-bound-serialized-events.md)
 
 ## When an ADR is required
 

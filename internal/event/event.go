@@ -12,12 +12,18 @@ import (
 )
 
 var (
+	// ErrPayloadTooLarge identifies payloads that exceed MaxPayloadBytes.
+	ErrPayloadTooLarge = errors.New("event payload too large")
+
 	// ErrMalformedJSON identifies payloads that are not syntactically valid JSON.
 	ErrMalformedJSON = errors.New("malformed event JSON")
 
 	// ErrInvalidEvent identifies valid JSON that does not satisfy the event contract.
 	ErrInvalidEvent = errors.New("invalid event")
 )
+
+// MaxPayloadBytes is the largest serialized event accepted by Decode.
+const MaxPayloadBytes = 1 << 20
 
 // Event is the smallest normalized security-telemetry event Watchtower
 // currently understands. The contract will evolve as real telemetry sources
@@ -48,6 +54,9 @@ func (r Record) Raw() []byte {
 // alongside an immutable copy of the original payload. Unknown object fields
 // are accepted and remain available in the raw payload.
 func Decode(payload []byte) (Record, error) {
+	if len(payload) > MaxPayloadBytes {
+		return Record{}, ErrPayloadTooLarge
+	}
 	if !json.Valid(payload) {
 		return Record{}, ErrMalformedJSON
 	}
@@ -85,6 +94,9 @@ func Decode(payload []byte) (Record, error) {
 		}
 	}
 
+	if !hasStrictRFC3339Syntax(timestampText) {
+		return Record{}, fmt.Errorf("%w: timestamp must use RFC 3339", ErrInvalidEvent)
+	}
 	timestamp, err := time.Parse(time.RFC3339Nano, timestampText)
 	if err != nil {
 		return Record{}, fmt.Errorf("%w: timestamp must use RFC 3339", ErrInvalidEvent)
@@ -101,4 +113,63 @@ func Decode(payload []byte) (Record, error) {
 		},
 		raw: bytes.Clone(payload),
 	}, nil
+}
+
+func hasStrictRFC3339Syntax(value string) bool {
+	if len(value) < len("0000-00-00T00:00:00Z") {
+		return false
+	}
+
+	for i := range 19 {
+		switch i {
+		case 4, 7:
+			if value[i] != '-' {
+				return false
+			}
+		case 10:
+			if value[i] != 'T' {
+				return false
+			}
+		case 13, 16:
+			if value[i] != ':' {
+				return false
+			}
+		default:
+			if value[i] < '0' || value[i] > '9' {
+				return false
+			}
+		}
+	}
+
+	zoneStart := 19
+	if value[zoneStart] == '.' {
+		zoneStart++
+		fractionStart := zoneStart
+		for zoneStart < len(value) && value[zoneStart] >= '0' && value[zoneStart] <= '9' {
+			zoneStart++
+		}
+		if zoneStart == fractionStart {
+			return false
+		}
+	}
+
+	if zoneStart == len(value)-1 && value[zoneStart] == 'Z' {
+		return true
+	}
+	if len(value)-zoneStart != len("+00:00") {
+		return false
+	}
+
+	zone := value[zoneStart:]
+	if (zone[0] != '+' && zone[0] != '-') || zone[3] != ':' {
+		return false
+	}
+	if zone[1] < '0' || zone[1] > '9' || zone[2] < '0' || zone[2] > '9' ||
+		zone[4] < '0' || zone[4] > '9' || zone[5] < '0' || zone[5] > '9' {
+		return false
+	}
+
+	offsetHour := 10*int(zone[1]-'0') + int(zone[2]-'0')
+	offsetMinute := 10*int(zone[4]-'0') + int(zone[5]-'0')
+	return offsetHour <= 23 && offsetMinute <= 59
 }
