@@ -56,6 +56,9 @@ func Decode(payload []byte) (Record, error) {
 	if err := json.Unmarshal(payload, &object); err != nil {
 		return Record{}, fmt.Errorf("%w: event must be an object", ErrInvalidEvent)
 	}
+	if object == nil {
+		return Record{}, fmt.Errorf("%w: event must be an object", ErrInvalidEvent)
+	}
 
 	var id, timestampText, actor, action, target, source string
 	required := []struct {

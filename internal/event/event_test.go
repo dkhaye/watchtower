@@ -90,7 +90,7 @@ func TestDecodeRejectsInvalidEvents(t *testing.T) {
 		payload string
 		field   string
 	}{
-		{name: "null", payload: `null`, field: "id"},
+		{name: "null", payload: `null`, field: "object"},
 		{name: "array", payload: `[]`, field: "object"},
 		{name: "wrong field type", payload: `{"id":{},"timestamp":"2026-09-19T18:30:45Z","actor":"a","action":"b","target":"c","source":"d"}`, field: "id must be a string"},
 		{name: "wrong field case", payload: strings.Replace(valid, `"id": "event-123"`, `"ID": "event-123"`, 1), field: "id"},
