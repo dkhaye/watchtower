@@ -377,3 +377,14 @@ being used is clearly personal and under the user's control.
 
 The first implementation work should remain intentionally small enough to
 understand every architectural assumption before Event Hubs is introduced.
+
+## Repository commands and CI structure
+
+The repository uses `just` as its local command runner. Go remains responsible
+for package dependency analysis, compilation, testing, and build caching.
+
+GitHub Actions uses a central `ci.yml` orchestrator for pull requests and
+pushes to `main`. Each check is an independently callable reusable workflow
+named `<domain>.<atom>.yml`. Repeated checks across component directories
+should use a caller-side matrix. Workflow linting remains a separate top-level
+workflow so errors in the central orchestrator do not hide actionlint results.
