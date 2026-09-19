@@ -2,6 +2,8 @@ set dotenv-load := false
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 binary := ".build/watchtower-linux-amd64"
+coverage_profile := ".build/coverage.out"
+coverage_html := ".build/coverage.html"
 golangci_lint := "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2"
 govulncheck := "golang.org/x/vuln/cmd/govulncheck@v1.8.0"
 actionlint := "github.com/rhysd/actionlint/cmd/actionlint@v1.7.12"
@@ -41,11 +43,22 @@ vet:
 
 # Run the configured Go linters.
 lint:
+    mkdir -p .build
     go run {{golangci_lint}} run ./...
 
 # Run unit tests.
 test:
     go test ./...
+
+# Run unit tests with statement coverage and print the function summary.
+coverage:
+    mkdir -p .build
+    go test -covermode=atomic -coverprofile={{coverage_profile}} ./...
+    go tool cover -func={{coverage_profile}}
+
+# Generate a browsable HTML coverage report after running coverage.
+coverage-html: coverage
+    go tool cover -html={{coverage_profile}} -o {{coverage_html}}
 
 # Run unit tests with the race detector.
 race:
@@ -65,4 +78,4 @@ lint-workflows:
     go run {{actionlint}}
 
 # Run the complete local verification contract.
-check: fmt-check tidy-check verify vet lint test race build vuln lint-workflows
+check: fmt-check tidy-check verify vet lint test coverage race build vuln lint-workflows

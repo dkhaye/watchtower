@@ -19,6 +19,14 @@ formatters:
   enable:
     - gofmt
 
+output:
+  formats:
+    text:
+      path: stdout
+      colors: true
+    sarif:
+      path: .build/golangci-lint.sarif
+
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0

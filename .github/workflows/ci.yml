@@ -43,12 +43,20 @@ jobs:
     uses: ./.github/workflows/go.lint.yml
     permissions:
       contents: read
+      security-events: write
 
   go-test:
     name: go
     uses: ./.github/workflows/go.test.yml
     permissions:
       contents: read
+
+  go-coverage:
+    name: go
+    uses: ./.github/workflows/go.coverage.yml
+    permissions:
+      contents: read
+      id-token: write
 
   go-race:
     name: go
@@ -85,6 +93,7 @@ jobs:
       - go-vet
       - go-lint
       - go-test
+      - go-coverage
       - go-race
       - go-build
       - go-vulnerability
