@@ -64,6 +64,10 @@ coverage-html: coverage
 race:
     go test -race ./...
 
+# Fuzz the untrusted event-decoding boundary for a bounded duration.
+fuzz-event duration="10s":
+    go test -run='^$' -fuzz=FuzzDecode -fuzztime={{duration}} ./internal/event
+
 # Build a reproducible Linux/amd64 executable.
 build version="dev":
     mkdir -p "$(dirname '{{binary}}')"

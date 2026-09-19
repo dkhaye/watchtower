@@ -5,9 +5,15 @@ infrastructure, Go, Terraform, and distributed systems. It is intentionally
 being built in small, explicit steps rather than as a tutorial-scale facsimile
 of a production platform.
 
-The repository currently contains a minimal Go command and the quality gates
-that future implementation must satisfy. Event ingestion, cloud resources,
-storage, and detection are not implemented yet.
+The repository currently contains a minimal Go command, the first serialized
+event-decoding boundary, and the quality gates that future implementation must
+satisfy. Transport, persistence, cloud resources, and detection are not
+implemented yet.
+
+Start with [ARCHITECTURE.md](ARCHITECTURE.md) for the current system map,
+[INVARIANTS.md](INVARIANTS.md) for non-negotiable constraints, and the
+[architectural decision log](docs/adr/README.md) for the rationale behind
+significant choices.
 
 ## Prerequisites
 
