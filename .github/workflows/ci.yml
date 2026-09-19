@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go-format:
+    name: go
+    uses: ./.github/workflows/go.format.yml
+    permissions:
+      contents: read
+
+  go-tidy:
+    name: go
+    uses: ./.github/workflows/go.tidy.yml
+    permissions:
+      contents: read
+
+  go-verify:
+    name: go
+    uses: ./.github/workflows/go.verify.yml
+    permissions:
+      contents: read
+
+  go-vet:
+    name: go
+    uses: ./.github/workflows/go.vet.yml
+    permissions:
+      contents: read
+
+  go-lint:
+    name: go
+    uses: ./.github/workflows/go.lint.yml
+    permissions:
+      contents: read
+
+  go-test:
+    name: go
+    uses: ./.github/workflows/go.test.yml
+    permissions:
+      contents: read
+
+  go-race:
+    name: go
+    uses: ./.github/workflows/go.race.yml
+    permissions:
+      contents: read
+
+  go-build:
+    name: go
+    uses: ./.github/workflows/go.build.yml
+    permissions:
+      contents: read
+
+  go-vulnerability:
+    name: go
+    uses: ./.github/workflows/go.vulnerability.yml
+    permissions:
+      contents: read
+
+  security-codeql:
+    name: security
+    uses: ./.github/workflows/security.codeql.yml
+    permissions:
+      contents: read
+      security-events: write
+
+  ci-gate:
+    name: ci
+    if: ${{ always() }}
+    needs:
+      - go-format
+      - go-tidy
+      - go-verify
+      - go-vet
+      - go-lint
+      - go-test
+      - go-race
+      - go-build
+      - go-vulnerability
+      - security-codeql
+    uses: ./.github/workflows/ci.gate.yml
+    with:
+      results: ${{ toJSON(needs) }}
+    permissions: {}

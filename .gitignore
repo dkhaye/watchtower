@@ -1,1 +1,25 @@
-.local/*
+# Private project context.
+.local/
+
+# Local environment and credentials.
+.env
+.env.*
+!.env.example
+
+# Go build and test output.
+.build/
+coverage.out
+
+# Terraform working data and state. Example variable files may be committed.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+!*.tfvars.json.example
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json

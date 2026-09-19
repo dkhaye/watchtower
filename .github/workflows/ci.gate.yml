@@ -1,0 +1,23 @@
+name: ci.gate
+
+on:
+  workflow_call:
+    inputs:
+      results:
+        description: JSON representation of the required caller jobs
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every CI atom to succeed
+        env:
+          RESULTS: ${{ inputs.results }}
+        run: |
+          jq -e 'all(.[]; .result == "success")' <<<"${RESULTS}"
