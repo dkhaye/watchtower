@@ -11,6 +11,7 @@ This directory records architecturally significant Watchtower decisions using
 - [ADR-0003: Start with a minimal event contract](0003-start-with-a-minimal-event-contract.md)
 - [ADR-0004: Bound serialized events to 1 MiB](0004-bound-serialized-events.md)
 - [ADR-0005: Keep the public repository self-contained](0005-keep-repository-self-contained.md)
+- [ADR-0006: Reject ambiguous JSON event representations](0006-reject-ambiguous-json-event-representations.md)
 
 ## When an ADR is required
 

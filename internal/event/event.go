@@ -61,6 +61,12 @@ func Decode(payload []byte) (Record, error) {
 	if !utf8.Valid(payload) || !json.Valid(payload) {
 		return Record{}, ErrMalformedJSON
 	}
+	if !hasValidUnicodeEscapes(payload) {
+		return Record{}, fmt.Errorf("%w: event must contain valid Unicode", ErrInvalidEvent)
+	}
+	if !hasUniqueObjectMemberNames(payload) {
+		return Record{}, fmt.Errorf("%w: duplicate object member name", ErrInvalidEvent)
+	}
 
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(payload, &object); err != nil {
@@ -87,9 +93,6 @@ func Decode(payload []byte) (Record, error) {
 		if !exists {
 			return Record{}, fmt.Errorf("%w: %s is required", ErrInvalidEvent, field.name)
 		}
-		if !hasValidUnicodeEscapes(raw) {
-			return Record{}, fmt.Errorf("%w: %s must contain valid Unicode", ErrInvalidEvent, field.name)
-		}
 		if err := json.Unmarshal(raw, field.value); err != nil {
 			return Record{}, fmt.Errorf("%w: %s must be a string", ErrInvalidEvent, field.name)
 		}
@@ -98,10 +101,7 @@ func Decode(payload []byte) (Record, error) {
 		}
 	}
 
-	if !hasStrictRFC3339Syntax(timestampText) {
-		return Record{}, fmt.Errorf("%w: timestamp must use RFC 3339", ErrInvalidEvent)
-	}
-	timestamp, err := time.Parse(time.RFC3339Nano, timestampText)
+	timestamp, err := parseRFC3339(timestampText)
 	if err != nil {
 		return Record{}, fmt.Errorf("%w: timestamp must use RFC 3339", ErrInvalidEvent)
 	}
@@ -119,10 +119,64 @@ func Decode(payload []byte) (Record, error) {
 	}, nil
 }
 
-// hasValidUnicodeEscapes rejects lone UTF-16 surrogate escapes before
-// encoding/json replaces them with U+FFFD. JSON strings may encode scalar
-// values above U+FFFF as a high-surrogate/low-surrogate pair, but an unpaired
-// surrogate is not a Unicode scalar value.
+func hasUniqueObjectMemberNames(payload []byte) bool {
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.UseNumber()
+	return nextJSONValueHasUniqueObjectMemberNames(decoder)
+}
+
+func nextJSONValueHasUniqueObjectMemberNames(decoder *json.Decoder) bool {
+	token, err := decoder.Token()
+	if err != nil {
+		return false
+	}
+
+	delimiter, isDelimiter := token.(json.Delim)
+	if !isDelimiter {
+		return true
+	}
+
+	switch delimiter {
+	case '{':
+		members := make(map[string]struct{})
+		for decoder.More() {
+			nameToken, err := decoder.Token()
+			if err != nil {
+				return false
+			}
+			name, ok := nameToken.(string)
+			if !ok {
+				return false
+			}
+			if _, duplicate := members[name]; duplicate {
+				return false
+			}
+			members[name] = struct{}{}
+
+			if !nextJSONValueHasUniqueObjectMemberNames(decoder) {
+				return false
+			}
+		}
+		end, err := decoder.Token()
+		return err == nil && end == json.Delim('}')
+	case '[':
+		for decoder.More() {
+			if !nextJSONValueHasUniqueObjectMemberNames(decoder) {
+				return false
+			}
+		}
+		end, err := decoder.Token()
+		return err == nil && end == json.Delim(']')
+	default:
+		return false
+	}
+}
+
+// hasValidUnicodeEscapes rejects lone UTF-16 surrogate escapes anywhere in a
+// serialized JSON value before encoding/json replaces them with U+FFFD. JSON
+// strings may encode scalar values above U+FFFF as a
+// high-surrogate/low-surrogate pair, but an unpaired surrogate is not a Unicode
+// scalar value.
 func hasValidUnicodeEscapes(raw []byte) bool {
 	for i := 1; i < len(raw)-1; {
 		if raw[i] != '\\' {
@@ -181,6 +235,20 @@ func decodeHexEscape(raw []byte, start int) (uint16, bool) {
 	return value, true
 }
 
+func parseRFC3339(value string) (time.Time, error) {
+	if !hasStrictRFC3339Syntax(value) {
+		return time.Time{}, errors.New("invalid RFC 3339 timestamp")
+	}
+
+	normalized := []byte(value)
+	normalized[10] = 'T'
+	if normalized[len(normalized)-1] == 'z' {
+		normalized[len(normalized)-1] = 'Z'
+	}
+
+	return time.Parse(time.RFC3339Nano, string(normalized))
+}
+
 func hasStrictRFC3339Syntax(value string) bool {
 	if len(value) < len("0000-00-00T00:00:00Z") {
 		return false
@@ -193,7 +261,7 @@ func hasStrictRFC3339Syntax(value string) bool {
 				return false
 			}
 		case 10:
-			if value[i] != 'T' {
+			if value[i] != 'T' && value[i] != 't' {
 				return false
 			}
 		case 13, 16:
@@ -219,7 +287,7 @@ func hasStrictRFC3339Syntax(value string) bool {
 		}
 	}
 
-	if zoneStart == len(value)-1 && value[zoneStart] == 'Z' {
+	if zoneStart == len(value)-1 && (value[zoneStart] == 'Z' || value[zoneStart] == 'z') {
 		return true
 	}
 	if len(value)-zoneStart != len("+00:00") {

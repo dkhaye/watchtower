@@ -20,7 +20,8 @@ func TestDecode(t *testing.T) {
   "action": "role.assignment.created",
   "target": "/subscriptions/example/resourceGroups/security",
   "source": "azure-activity-log",
-  "schema_version": 7
+  "schema_version": 7,
+  "unknown": {"large_number": 1e100000, "nested": [true, {"value": 1}]}
 }`)
 	wantRaw := bytes.Clone(payload)
 
@@ -89,26 +90,45 @@ func TestDecodeRejectsUnpairedUnicodeSurrogateEscapes(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name string
-		id   string
+		name    string
+		payload string
 	}{
-		{name: "high surrogate", id: `\ud800`},
-		{name: "different high surrogate", id: `\ud801`},
-		{name: "low surrogate", id: `\udc00`},
-		{name: "high surrogate followed by non-low surrogate", id: `\ud800\u0041`},
+		{
+			name:    "high surrogate",
+			payload: `{"id":"\ud800","timestamp":"2026-09-19T18:30:45Z","actor":"a","action":"b","target":"c","source":"d"}`,
+		},
+		{
+			name:    "different high surrogate",
+			payload: `{"id":"\ud801","timestamp":"2026-09-19T18:30:45Z","actor":"a","action":"b","target":"c","source":"d"}`,
+		},
+		{
+			name:    "low surrogate",
+			payload: `{"id":"\udc00","timestamp":"2026-09-19T18:30:45Z","actor":"a","action":"b","target":"c","source":"d"}`,
+		},
+		{
+			name:    "high surrogate followed by non-low surrogate",
+			payload: `{"id":"\ud800\u0041","timestamp":"2026-09-19T18:30:45Z","actor":"a","action":"b","target":"c","source":"d"}`,
+		},
+		{
+			name:    "unknown string value",
+			payload: `{"id":"1","timestamp":"2026-09-19T18:30:45Z","actor":"a","action":"b","target":"c","source":"d","unknown":"\ud800"}`,
+		},
+		{
+			name:    "unknown member name",
+			payload: `{"id":"1","timestamp":"2026-09-19T18:30:45Z","actor":"a","action":"b","target":"c","source":"d","\ud800":true}`,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			payload := []byte(`{"id":"` + tt.id + `","timestamp":"2026-09-19T18:30:45Z","actor":"a","action":"b","target":"c","source":"d"}`)
-			_, err := event.Decode(payload)
+			_, err := event.Decode([]byte(tt.payload))
 			if !errors.Is(err, event.ErrInvalidEvent) {
 				t.Fatalf("Decode() error = %v, want ErrInvalidEvent", err)
 			}
-			if !strings.Contains(err.Error(), "id must contain valid Unicode") {
-				t.Errorf("Decode() error = %q, want Unicode field context", err)
+			if !strings.Contains(err.Error(), "event must contain valid Unicode") {
+				t.Errorf("Decode() error = %q, want Unicode context", err)
 			}
 		})
 	}
@@ -138,6 +158,82 @@ func TestDecodeAcceptsValidUnicodeEscapes(t *testing.T) {
 			}
 			if record.Event.ID != tt.want {
 				t.Errorf("Decode() ID = %q, want %q", record.Event.ID, tt.want)
+			}
+		})
+	}
+}
+
+func TestDecodeRejectsDuplicateObjectMemberNames(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		payload string
+	}{
+		{
+			name:    "required member",
+			payload: `{"id":"first","id":"second","timestamp":"2026-09-19T18:30:45Z","actor":"a","action":"b","target":"c","source":"d"}`,
+		},
+		{
+			name:    "escaped equivalent member",
+			payload: `{"id":"first","\u0069d":"second","timestamp":"2026-09-19T18:30:45Z","actor":"a","action":"b","target":"c","source":"d"}`,
+		},
+		{
+			name:    "unknown member",
+			payload: `{"id":"first","timestamp":"2026-09-19T18:30:45Z","actor":"a","action":"b","target":"c","source":"d","extra":1,"extra":2}`,
+		},
+		{
+			name:    "nested member",
+			payload: `{"id":"first","timestamp":"2026-09-19T18:30:45Z","actor":"a","action":"b","target":"c","source":"d","extra":{"value":1,"value":2}}`,
+		},
+		{
+			name:    "member nested in array",
+			payload: `{"id":"first","timestamp":"2026-09-19T18:30:45Z","actor":"a","action":"b","target":"c","source":"d","extra":[{"value":1,"value":2}]}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := event.Decode([]byte(tt.payload))
+			if !errors.Is(err, event.ErrInvalidEvent) {
+				t.Fatalf("Decode() error = %v, want ErrInvalidEvent", err)
+			}
+			if !strings.Contains(err.Error(), "duplicate object member name") {
+				t.Errorf("Decode() error = %q, want duplicate-member context", err)
+			}
+			if strings.Contains(err.Error(), "first") || strings.Contains(err.Error(), "extra") {
+				t.Errorf("Decode() error %q contains telemetry field data", err)
+			}
+		})
+	}
+}
+
+func TestDecodeAcceptsRFC3339CaseVariants(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		timestamp string
+	}{
+		{name: "lowercase time separator", timestamp: "2026-09-19t18:30:45Z"},
+		{name: "lowercase UTC designator", timestamp: "2026-09-19T18:30:45z"},
+		{name: "both lowercase", timestamp: "2026-09-19t18:30:45.123z"},
+		{name: "lowercase time separator with offset", timestamp: "2026-09-19t18:30:45-04:00"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			payload := []byte(`{"id":"1","timestamp":"` + tt.timestamp + `","actor":"a","action":"b","target":"c","source":"d"}`)
+			record, err := event.Decode(payload)
+			if err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if got := record.Raw(); !bytes.Equal(got, payload) {
+				t.Errorf("Decode() Raw = %q, want exact payload %q", got, payload)
 			}
 		})
 	}
@@ -185,7 +281,6 @@ func TestDecodeRejectsInvalidEvents(t *testing.T) {
 		{name: "invalid timestamp", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "yesterday", 1), field: "timestamp"},
 		{name: "non-digit timestamp", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "202X-09-19T18:30:45Z", 1), field: "timestamp"},
 		{name: "invalid date separator", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026/09-19T18:30:45Z", 1), field: "timestamp"},
-		{name: "lowercase time separator", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19t18:30:45Z", 1), field: "timestamp"},
 		{name: "empty timestamp fraction", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45.Z", 1), field: "timestamp"},
 		{name: "comma timestamp fraction", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45,1Z", 1), field: "timestamp"},
 		{name: "missing timestamp zone", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45.1", 1), field: "timestamp"},

@@ -71,7 +71,10 @@ requirements should drive future structure.
 
 Unknown JSON fields are accepted for forward compatibility and remain present
 in the raw payload. The decoder does not silently trim or otherwise normalize
-field values. Blank required fields are rejected. Serialized events larger
+field values. Blank required fields are rejected. Ambiguous serialized forms
+that could decode differently across implementations are rejected, including
+invalid UTF-8, unpaired Unicode surrogate escapes, and duplicate object member
+names at any nesting level. Serialized events larger
 than 1 MiB are rejected before JSON parsing; future transports must apply the
 same or a stricter limit while reading so the initial input allocation is also
 bounded.
@@ -84,7 +87,7 @@ Decoding distinguishes three caller-actionable classes:
 - malformed JSON, where the serialized representation or its UTF-8 encoding
   is invalid; and
 - invalid events, where the JSON is valid but does not satisfy the event
-  contract.
+  contract, including ambiguous Unicode escapes or duplicate object members.
 
 Errors identify the violated contract without copying telemetry values into
 the error text. Transport-level retry, rejection, dead-letter, and checkpoint
