@@ -370,7 +370,7 @@ all committed material should be safe to publish.
 
 ## Current state
 
-The repository exists locally and has project-level AGENTS.md instructions.
+The repository has project-level AGENTS.md instructions.
 
 The first application boundary decodes one serialized JSON payload into a
 minimal typed event while retaining an immutable copy of the exact original

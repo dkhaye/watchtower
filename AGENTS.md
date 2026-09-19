@@ -8,12 +8,10 @@ Read these files before substantial work:
 - `ARCHITECTURE.md`
 - `INVARIANTS.md`
 - `docs/PROJECT_CONTEXT.md`
-- relevant files under `.local/` when that directory exists
 
 `ARCHITECTURE.md` describes the system that exists today.
 `INVARIANTS.md` contains non-negotiable system and repository constraints.
 `docs/PROJECT_CONTEXT.md` contains durable project context.
-`.local/` contains private contributor context and must never be committed.
 
 ## Goals
 
@@ -63,7 +61,6 @@ Read these files before substantial work:
 - Do not use employer code, prompts, configs, tokens, documents, or other
   proprietary material.
 - This repository is a clean-room personal project.
-- Never commit `.local/`.
 - Never commit credentials, Terraform state, `.env` files, certificates,
   private keys, or secrets.
 
@@ -139,3 +136,11 @@ CI logic directly in GitHub Actions YAML.
   failure semantic, trust boundary, persistence model, or deployment model
   when the change neither follows an accepted ADR nor includes a proposed ADR.
   Routine implementation details do not require ADRs.
+
+### Self-contained public repository
+
+- Flag committed code, documentation, automation, or contributor instructions
+  that name or depend on files or scripts unavailable in the repository.
+- Flag required setup that cannot be reproduced from committed instructions.
+- Flag descriptions of uncommitted contributor-specific state. Ignored
+  workstation state must remain optional and irrelevant to repository use.

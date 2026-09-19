@@ -115,7 +115,6 @@ introduced.
 
 Do not commit:
 
-- `.local/` content
 - credentials, tokens, private keys, certificates, or `.env` files
 - Terraform state or non-example variable files
 - employer-owned code, prompts, configuration, or documents

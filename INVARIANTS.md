@@ -68,3 +68,12 @@ proprietary implementation details must not enter this repository.
 Repository-local commands define correctness. Independent CI checks run
 independently so one failure does not hide unrelated failures, and the final
 aggregate gate succeeds only when every required check succeeds.
+
+## INV-012: Keep the public repository self-contained
+
+Committed code, documentation, automation, and contributor instructions must
+name and depend only on files available in the repository or artifacts created
+by documented, reproducible setup. Uncommitted machine-specific files and
+scripts must never be required or named. Ignored workstation state may exist,
+but repository content must neither depend on it nor describe its contents or
+purpose.
