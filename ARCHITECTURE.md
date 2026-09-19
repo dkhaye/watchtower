@@ -81,7 +81,8 @@ bounded.
 Decoding distinguishes three caller-actionable classes:
 
 - oversized payloads, which are rejected before parsing;
-- malformed JSON, where the serialized representation is invalid; and
+- malformed JSON, where the serialized representation or its UTF-8 encoding
+  is invalid; and
 - invalid events, where the JSON is valid but does not satisfy the event
   contract.
 

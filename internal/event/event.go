@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 var (
@@ -57,7 +58,7 @@ func Decode(payload []byte) (Record, error) {
 	if len(payload) > MaxPayloadBytes {
 		return Record{}, ErrPayloadTooLarge
 	}
-	if !json.Valid(payload) {
+	if !utf8.Valid(payload) || !json.Valid(payload) {
 		return Record{}, ErrMalformedJSON
 	}
 

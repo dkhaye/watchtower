@@ -73,6 +73,18 @@ func TestDecodeRejectsMalformedJSON(t *testing.T) {
 	}
 }
 
+func TestDecodeRejectsInvalidUTF8(t *testing.T) {
+	t.Parallel()
+
+	payload := []byte(`{"id":"x","timestamp":"2026-09-19T18:30:45Z","actor":"a","action":"b","target":"c","source":"d"}`)
+	payload[7] = 0xff
+
+	_, err := event.Decode(payload)
+	if !errors.Is(err, event.ErrMalformedJSON) {
+		t.Fatalf("Decode() error = %v, want ErrMalformedJSON", err)
+	}
+}
+
 func TestDecodeRejectsOversizedPayloadBeforeParsing(t *testing.T) {
 	t.Parallel()
 
