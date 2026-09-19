@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: read
+  security-events: write
 
 jobs:
   lint:
@@ -32,4 +33,17 @@ jobs:
           just-version: 1.58.0
 
       - name: Lint Go code
+        id: lint
+        continue-on-error: true
         run: just lint
+
+      - name: Upload lint findings to code scanning
+        if: ${{ always() && hashFiles('.build/golangci-lint.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4
+        with:
+          category: golangci-lint
+          sarif_file: .build/golangci-lint.sarif
+
+      - name: Enforce lint result
+        if: ${{ always() && steps.lint.outcome == 'failure' }}
+        run: exit 1

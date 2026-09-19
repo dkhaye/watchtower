@@ -25,6 +25,17 @@ downloads the pinned Go-based development tools recorded in `justfile`. Each
 tool executes with its own module dependency graph so tool dependencies cannot
 affect the application or one another.
 
+Measure statement coverage and generate a local HTML report with:
+
+```sh
+just coverage
+just coverage-html
+```
+
+The HTML report is written to `.build/coverage.html`. Coverage is treated as a
+diagnostic signal rather than a target: CI records the report and changed-line
+coverage, but does not reject a change solely because of a percentage.
+
 Build and run the bootstrap command with:
 
 ```sh

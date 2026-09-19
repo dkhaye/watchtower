@@ -388,3 +388,19 @@ pushes to `main`. Each check is an independently callable reusable workflow
 named `<domain>.<atom>.yml`. Repeated checks across component directories
 should use a caller-side matrix. Workflow linting remains a separate top-level
 workflow so errors in the central orchestrator do not hide actionlint results.
+
+Native Go coverage profiles are the source of truth for coverage reporting.
+Coverage is tracked as a diagnostic signal through CI artifacts and Codecov,
+not enforced as a percentage threshold. The bootstrap baseline was 72.7%
+statement coverage when tracking was introduced.
+
+Static-analysis atoms should retain their local pass/fail behavior while also
+uploading SARIF to GitHub Code Scanning when the tool supports it. A dismissal
+in GitHub does not replace a narrow, documented suppression in repository
+configuration. Checkov should be introduced with the first Terraform code and
+follow this pattern.
+
+Dependabot monitors Go modules and SHA-pinned GitHub Actions. Routine minor and
+patch updates are grouped by ecosystem; major and security updates receive
+focused pull requests. Tool versions embedded in `justfile` are outside
+Dependabot's manifest support and remain an explicit maintenance item.
