@@ -87,6 +87,9 @@ func Decode(payload []byte) (Record, error) {
 		if !exists {
 			return Record{}, fmt.Errorf("%w: %s is required", ErrInvalidEvent, field.name)
 		}
+		if !hasValidUnicodeEscapes(raw) {
+			return Record{}, fmt.Errorf("%w: %s must contain valid Unicode", ErrInvalidEvent, field.name)
+		}
 		if err := json.Unmarshal(raw, field.value); err != nil {
 			return Record{}, fmt.Errorf("%w: %s must be a string", ErrInvalidEvent, field.name)
 		}
@@ -114,6 +117,68 @@ func Decode(payload []byte) (Record, error) {
 		},
 		raw: bytes.Clone(payload),
 	}, nil
+}
+
+// hasValidUnicodeEscapes rejects lone UTF-16 surrogate escapes before
+// encoding/json replaces them with U+FFFD. JSON strings may encode scalar
+// values above U+FFFF as a high-surrogate/low-surrogate pair, but an unpaired
+// surrogate is not a Unicode scalar value.
+func hasValidUnicodeEscapes(raw []byte) bool {
+	for i := 1; i < len(raw)-1; {
+		if raw[i] != '\\' {
+			i++
+			continue
+		}
+		if i+1 >= len(raw)-1 {
+			return false
+		}
+		if raw[i+1] != 'u' {
+			i += 2
+			continue
+		}
+
+		codePoint, ok := decodeHexEscape(raw, i)
+		if !ok {
+			return false
+		}
+		i += len(`\u0000`)
+
+		switch {
+		case codePoint >= 0xD800 && codePoint <= 0xDBFF:
+			lowSurrogate, ok := decodeHexEscape(raw, i)
+			if !ok || lowSurrogate < 0xDC00 || lowSurrogate > 0xDFFF {
+				return false
+			}
+			i += len(`\u0000`)
+		case codePoint >= 0xDC00 && codePoint <= 0xDFFF:
+			return false
+		}
+	}
+
+	return true
+}
+
+func decodeHexEscape(raw []byte, start int) (uint16, bool) {
+	if start+len(`\u0000`) > len(raw)-1 || raw[start] != '\\' || raw[start+1] != 'u' {
+		return 0, false
+	}
+
+	var value uint16
+	for _, digit := range raw[start+2 : start+6] {
+		value <<= 4
+		switch {
+		case digit >= '0' && digit <= '9':
+			value += uint16(digit - '0')
+		case digit >= 'a' && digit <= 'f':
+			value += uint16(digit-'a') + 10
+		case digit >= 'A' && digit <= 'F':
+			value += uint16(digit-'A') + 10
+		default:
+			return 0, false
+		}
+	}
+
+	return value, true
 }
 
 func hasStrictRFC3339Syntax(value string) bool {

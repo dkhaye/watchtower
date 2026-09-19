@@ -85,6 +85,64 @@ func TestDecodeRejectsInvalidUTF8(t *testing.T) {
 	}
 }
 
+func TestDecodeRejectsUnpairedUnicodeSurrogateEscapes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		id   string
+	}{
+		{name: "high surrogate", id: `\ud800`},
+		{name: "different high surrogate", id: `\ud801`},
+		{name: "low surrogate", id: `\udc00`},
+		{name: "high surrogate followed by non-low surrogate", id: `\ud800\u0041`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			payload := []byte(`{"id":"` + tt.id + `","timestamp":"2026-09-19T18:30:45Z","actor":"a","action":"b","target":"c","source":"d"}`)
+			_, err := event.Decode(payload)
+			if !errors.Is(err, event.ErrInvalidEvent) {
+				t.Fatalf("Decode() error = %v, want ErrInvalidEvent", err)
+			}
+			if !strings.Contains(err.Error(), "id must contain valid Unicode") {
+				t.Errorf("Decode() error = %q, want Unicode field context", err)
+			}
+		})
+	}
+}
+
+func TestDecodeAcceptsValidUnicodeEscapes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		id   string
+		want string
+	}{
+		{name: "surrogate pair", id: `\ud83d\ude80`, want: "🚀"},
+		{name: "replacement character escape", id: `\ufffd`, want: "�"},
+		{name: "escaped backslash", id: `\\ud800`, want: `\ud800`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			payload := []byte(`{"id":"` + tt.id + `","timestamp":"2026-09-19T18:30:45Z","actor":"a","action":"b","target":"c","source":"d"}`)
+			record, err := event.Decode(payload)
+			if err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if record.Event.ID != tt.want {
+				t.Errorf("Decode() ID = %q, want %q", record.Event.ID, tt.want)
+			}
+		})
+	}
+}
+
 func TestDecodeRejectsOversizedPayloadBeforeParsing(t *testing.T) {
 	t.Parallel()
 
