@@ -21,6 +21,29 @@ just check
 Use `just --list` to discover individual recipes. Prefer an individual recipe
 while iterating, then run the complete contract before pushing.
 
+The event decoder is an untrusted-input boundary. Its fuzz seed corpus runs as
+part of ordinary tests; run an active bounded fuzzing session with:
+
+```sh
+just fuzz-event
+just fuzz-event 30s
+```
+
+Active fuzzing is intentionally opt-in rather than part of every CI run.
+
+## Architecture and decisions
+
+Read [ARCHITECTURE.md](ARCHITECTURE.md) and
+[INVARIANTS.md](INVARIANTS.md) before changing application behavior or system
+boundaries. `ARCHITECTURE.md` describes what exists; it must not present a
+proposal as an implemented component.
+
+Architecturally significant changes require a Markdown Architectural Decision
+Record in [`docs/adr/`](docs/adr/README.md). Copy the repository template and
+include the proposed or accepted decision in the same pull request as its
+implementation. Routine implementation choices do not need ADRs. Supersede an
+accepted ADR with a new record instead of rewriting its historical rationale.
+
 ## Coverage
 
 Run statement coverage locally with:
@@ -92,7 +115,6 @@ introduced.
 
 Do not commit:
 
-- `.local/` content
 - credentials, tokens, private keys, certificates, or `.env` files
 - Terraform state or non-example variable files
 - employer-owned code, prompts, configuration, or documents

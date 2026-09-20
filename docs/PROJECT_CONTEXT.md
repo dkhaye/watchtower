@@ -370,7 +370,17 @@ all committed material should be safe to publish.
 
 ## Current state
 
-The repository exists locally and has project-level AGENTS.md instructions.
+The repository has project-level AGENTS.md instructions.
+
+The first application boundary decodes one serialized JSON payload into a
+minimal typed event while retaining an immutable copy of the exact original
+bytes. It accepts unknown fields for forward-compatible evolution and
+distinguishes malformed JSON from a structurally invalid event. Transport,
+persistence, rejection policy, and replay remain unimplemented.
+
+`ARCHITECTURE.md` documents the implemented system, `INVARIANTS.md` codifies
+non-negotiable constraints, and `docs/adr/` records significant architectural
+decisions using MADR 4.0.
 
 Cloud provisioning should not begin until the Azure identity/subscription
 being used is clearly personal and under the user's control.
