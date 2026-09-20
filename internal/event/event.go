@@ -101,9 +101,9 @@ func Decode(payload []byte) (Record, error) {
 		}
 	}
 
-	timestamp, err := parseRFC3339(timestampText)
+	timestamp, err := parseEventTimestamp(timestampText)
 	if err != nil {
-		return Record{}, fmt.Errorf("%w: timestamp must use RFC 3339", ErrInvalidEvent)
+		return Record{}, fmt.Errorf("%w: timestamp must use the Watchtower timestamp profile", ErrInvalidEvent)
 	}
 
 	return Record{
@@ -235,9 +235,9 @@ func decodeHexEscape(raw []byte, start int) (uint16, bool) {
 	return value, true
 }
 
-func parseRFC3339(value string) (time.Time, error) {
-	if !hasStrictRFC3339Syntax(value) {
-		return time.Time{}, errors.New("invalid RFC 3339 timestamp")
+func parseEventTimestamp(value string) (time.Time, error) {
+	if !hasEventTimestampSyntax(value) {
+		return time.Time{}, errors.New("invalid event timestamp")
 	}
 
 	normalized := []byte(value)
@@ -249,7 +249,11 @@ func parseRFC3339(value string) (time.Time, error) {
 	return time.Parse(time.RFC3339Nano, string(normalized))
 }
 
-func hasStrictRFC3339Syntax(value string) bool {
+// hasEventTimestampSyntax validates the RFC 3339 profile defined by ADR-0007.
+// The profile is intentionally limited to the precision and civil-time values
+// that time.Time can represent without normalization: seconds 00-59 and at
+// most nine fractional digits.
+func hasEventTimestampSyntax(value string) bool {
 	if len(value) < len("0000-00-00T00:00:00Z") {
 		return false
 	}
@@ -275,6 +279,17 @@ func hasStrictRFC3339Syntax(value string) bool {
 		}
 	}
 
+	year := decimalDigits(value[0:4])
+	month := decimalDigits(value[5:7])
+	day := decimalDigits(value[8:10])
+	hour := decimalDigits(value[11:13])
+	minute := decimalDigits(value[14:16])
+	second := decimalDigits(value[17:19])
+	if month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month) ||
+		hour > 23 || minute > 59 || second > 59 {
+		return false
+	}
+
 	zoneStart := 19
 	if value[zoneStart] == '.' {
 		zoneStart++
@@ -282,7 +297,7 @@ func hasStrictRFC3339Syntax(value string) bool {
 		for zoneStart < len(value) && value[zoneStart] >= '0' && value[zoneStart] <= '9' {
 			zoneStart++
 		}
-		if zoneStart == fractionStart {
+		if fractionDigits := zoneStart - fractionStart; fractionDigits < 1 || fractionDigits > 9 {
 			return false
 		}
 	}
@@ -303,7 +318,29 @@ func hasStrictRFC3339Syntax(value string) bool {
 		return false
 	}
 
-	offsetHour := 10*int(zone[1]-'0') + int(zone[2]-'0')
-	offsetMinute := 10*int(zone[4]-'0') + int(zone[5]-'0')
+	offsetHour := decimalDigits(zone[1:3])
+	offsetMinute := decimalDigits(zone[4:6])
 	return offsetHour <= 23 && offsetMinute <= 59
+}
+
+func decimalDigits(value string) int {
+	result := 0
+	for i := range len(value) {
+		result = result*10 + int(value[i]-'0')
+	}
+	return result
+}
+
+func daysInMonth(year, month int) int {
+	switch month {
+	case 4, 6, 9, 11:
+		return 30
+	case 2:
+		if year%400 == 0 || (year%4 == 0 && year%100 != 0) {
+			return 29
+		}
+		return 28
+	default:
+		return 31
+	}
 }

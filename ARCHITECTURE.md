@@ -59,7 +59,7 @@ layers or interfaces solely in anticipation of hypothetical implementations.
 The initial normalized event contains:
 
 - `id`: source- or producer-assigned stable event identifier;
-- `timestamp`: event time encoded as RFC 3339, including fractional seconds;
+- `timestamp`: event time encoded with Watchtower's RFC 3339 profile;
 - `actor`: identity responsible for the activity;
 - `action`: activity that occurred;
 - `target`: resource or object affected by the activity; and
@@ -68,6 +68,14 @@ The initial normalized event contains:
 All fields are currently strings except the decoded timestamp. This is a
 minimal learning contract, not a universal security-event schema. Real source
 requirements should drive future structure.
+
+The timestamp profile accepts RFC 3339 calendar dates, numeric UTC offsets,
+the RFC-permitted lowercase `t` and `z` variants, and zero through nine
+fractional-second digits. It intentionally excludes leap-second spellings and
+sub-nanosecond precision because Go's `time.Time` cannot represent them
+faithfully. The normalized timestamp represents an instant; source spelling
+and offset metadata, including the distinct `-00:00` convention, remain in the
+preserved raw payload. ADR-0007 records the complete profile and rationale.
 
 Unknown JSON fields are accepted for forward compatibility and remain present
 in the raw payload. The decoder does not silently trim or otherwise normalize

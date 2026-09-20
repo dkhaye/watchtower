@@ -210,17 +210,31 @@ func TestDecodeRejectsDuplicateObjectMemberNames(t *testing.T) {
 	}
 }
 
-func TestDecodeAcceptsRFC3339CaseVariants(t *testing.T) {
+func TestDecodeAcceptsTimestampProfile(t *testing.T) {
 	t.Parallel()
 
+	// Together these cases exercise every optional production and boundary in
+	// the timestamp profile defined by ADR-0007.
 	tests := []struct {
 		name      string
 		timestamp string
 	}{
+		{name: "UTC", timestamp: "2026-09-19T18:30:45Z"},
+		{name: "RFC fractional example", timestamp: "1985-04-12T23:20:50.52Z"},
+		{name: "RFC negative offset example", timestamp: "1996-12-19T16:39:57-08:00"},
+		{name: "RFC historical offset example", timestamp: "1937-01-01T12:00:27.87+00:20"},
 		{name: "lowercase time separator", timestamp: "2026-09-19t18:30:45Z"},
 		{name: "lowercase UTC designator", timestamp: "2026-09-19T18:30:45z"},
 		{name: "both lowercase", timestamp: "2026-09-19t18:30:45.123z"},
 		{name: "lowercase time separator with offset", timestamp: "2026-09-19t18:30:45-04:00"},
+		{name: "one fractional digit", timestamp: "2026-09-19T18:30:45.1Z"},
+		{name: "nanosecond precision", timestamp: "2026-09-19T18:30:45.123456789Z"},
+		{name: "maximum positive offset", timestamp: "2026-09-19T18:30:45+23:59"},
+		{name: "maximum negative offset", timestamp: "2026-09-19T18:30:45-23:59"},
+		{name: "unknown local offset", timestamp: "2026-09-19T18:30:45-00:00"},
+		{name: "year zero", timestamp: "0000-01-01T00:00:00Z"},
+		{name: "year 9999", timestamp: "9999-12-31T23:59:59Z"},
+		{name: "Gregorian leap day", timestamp: "2000-02-29T00:00:00Z"},
 	}
 
 	for _, tt := range tests {
@@ -234,6 +248,55 @@ func TestDecodeAcceptsRFC3339CaseVariants(t *testing.T) {
 			}
 			if got := record.Raw(); !bytes.Equal(got, payload) {
 				t.Errorf("Decode() Raw = %q, want exact payload %q", got, payload)
+			}
+		})
+	}
+}
+
+func TestDecodeRejectsTimestampsOutsideProfile(t *testing.T) {
+	t.Parallel()
+
+	// Some cases are valid in unrestricted RFC 3339 but intentionally outside
+	// Watchtower's time.Time-compatible profile. The rest cover each structural
+	// and calendar boundary rather than relying on time.Parse's permissiveness.
+	tests := []struct {
+		name      string
+		timestamp string
+	}{
+		{name: "announced UTC leap second", timestamp: "2016-12-31T23:59:60Z"},
+		{name: "announced offset leap second", timestamp: "1990-12-31T15:59:60-08:00"},
+		{name: "sub-nanosecond precision", timestamp: "2026-09-19T18:30:45.1234567890Z"},
+		{name: "empty fraction", timestamp: "2026-09-19T18:30:45.Z"},
+		{name: "comma fraction", timestamp: "2026-09-19T18:30:45,1Z"},
+		{name: "three-digit year", timestamp: "999-09-19T18:30:45Z"},
+		{name: "five-digit year", timestamp: "10000-09-19T18:30:45Z"},
+		{name: "month zero", timestamp: "2026-00-19T18:30:45Z"},
+		{name: "month thirteen", timestamp: "2026-13-19T18:30:45Z"},
+		{name: "day zero", timestamp: "2026-09-00T18:30:45Z"},
+		{name: "day beyond month", timestamp: "2026-04-31T18:30:45Z"},
+		{name: "non-leap February", timestamp: "2026-02-29T18:30:45Z"},
+		{name: "non-leap century", timestamp: "1900-02-29T18:30:45Z"},
+		{name: "hour 24", timestamp: "2026-09-19T24:00:00Z"},
+		{name: "minute 60", timestamp: "2026-09-19T18:60:00Z"},
+		{name: "second 61", timestamp: "2026-09-19T18:30:61Z"},
+		{name: "offset hour 24", timestamp: "2026-09-19T18:30:45+24:00"},
+		{name: "offset minute 60", timestamp: "2026-09-19T18:30:45+00:60"},
+		{name: "one-digit hour", timestamp: "2026-09-19T8:30:45Z"},
+		{name: "space separator", timestamp: "2026-09-19 18:30:45Z"},
+		{name: "missing zone", timestamp: "2026-09-19T18:30:45"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			payload := []byte(`{"id":"1","timestamp":"` + tt.timestamp + `","actor":"a","action":"b","target":"c","source":"d"}`)
+			_, err := event.Decode(payload)
+			if !errors.Is(err, event.ErrInvalidEvent) {
+				t.Fatalf("Decode() error = %v, want ErrInvalidEvent", err)
+			}
+			if !strings.Contains(err.Error(), "Watchtower timestamp profile") {
+				t.Errorf("Decode() error = %q, want timestamp-profile context", err)
 			}
 		})
 	}
@@ -281,17 +344,12 @@ func TestDecodeRejectsInvalidEvents(t *testing.T) {
 		{name: "invalid timestamp", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "yesterday", 1), field: "timestamp"},
 		{name: "non-digit timestamp", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "202X-09-19T18:30:45Z", 1), field: "timestamp"},
 		{name: "invalid date separator", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026/09-19T18:30:45Z", 1), field: "timestamp"},
-		{name: "empty timestamp fraction", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45.Z", 1), field: "timestamp"},
-		{name: "comma timestamp fraction", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45,1Z", 1), field: "timestamp"},
-		{name: "missing timestamp zone", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45.1", 1), field: "timestamp"},
 		{name: "invalid timestamp zone", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45X", 1), field: "timestamp"},
 		{name: "compact timestamp offset", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45+0100", 1), field: "timestamp"},
 		{name: "invalid offset sign", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45*01:00", 1), field: "timestamp"},
 		{name: "invalid offset separator", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45+01-00", 1), field: "timestamp"},
 		{name: "non-digit offset hour", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45+0x:00", 1), field: "timestamp"},
 		{name: "non-digit offset minute", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45+01:0x", 1), field: "timestamp"},
-		{name: "invalid offset minute", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45+01:60", 1), field: "timestamp"},
-		{name: "invalid offset hour", payload: strings.Replace(valid, "2026-09-19T18:30:45Z", "2026-09-19T18:30:45+24:00", 1), field: "timestamp"},
 	}
 
 	for _, tt := range tests {

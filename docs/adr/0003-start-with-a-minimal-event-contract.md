@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-09-19
 decision-makers: [repository owner]
 consulted: []
@@ -79,5 +79,8 @@ unknown `schema_version` field, and verify exact raw-payload retention.
 
 ## More Information
 
+- Superseded by [ADR-0007: Use a Go-representable RFC 3339 timestamp
+  profile](0007-use-a-go-representable-rfc3339-timestamp-profile.md). ADR-0007
+  retains the minimal envelope and replaces its timestamp acceptance rules.
 - [ADR-0001: Keep raw telemetry with decoded events](0001-keep-raw-telemetry-with-decoded-events.md)
 - [`ARCHITECTURE.md`](../../ARCHITECTURE.md)
